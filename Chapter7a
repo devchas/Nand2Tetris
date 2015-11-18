@@ -1,0 +1,123 @@
+import sys
+import re
+
+#NEED TO INITIALIZE STACK POSITION
+
+def cleanLine(line):	#returns line without spaces or comments
+	string = ''
+	for i in line:
+		if i == '/' or i == '\n':	#advance if encounter comment or new line
+			break
+		if i != ' ':	#remove whitespace
+			string = string + i
+	return string
+
+def push(num):
+	pushStr = 	('D=A\n' +
+				'@SP\n' +
+				'A=M\n' +
+				'M=D\n' +
+				'D=A+1\n' +
+				'@SP\n' +
+				'M=D')
+	return '@' + str(num) + '\n' + pushStr
+
+#print(push(5))
+
+def urOp(opType):
+	if opType == 'neg':
+		oper = '-'
+	elif opType == 'not':
+		oper = '!'
+	opStr = ('@SP\n' +
+			'A=M-1\n' +
+			'M=')
+	opStr = opStr + oper + 'M'
+	return opStr
+
+opCnt = 0
+
+def binOp(opType):
+	global opCnt
+	arithOps = ['add', 'sub', 'and', 'or']
+	opStr0 = 	('@SP\n' +
+				'A=M-1\n' +
+				'D=M\n' +
+				'A=A-1\n')
+	if opType in arithOps:
+		opStr1 = 'MD=' + binOpHash(opType) + '\n'
+	else:
+		opStr1 = compOps(opType)
+	opStr2 =	('(OPS' + str(opCnt) + ')\n'
+				'D=A+1\n' +
+				'@SP\n' +
+				'M=D')
+	opStr = opStr0 + opStr1 + opStr2
+	opCnt += 1
+	return(opStr)
+	
+def binOpHash(opType):
+	opsHash = {
+				'add': 'M+D',
+				'sub': 'M-D',
+				'and': 'M&D',
+				'or': 'M|D',
+				'eq': 'JEQ',
+				'gt': 'JGT',
+				'lt': 'JLT'
+			}
+	return opsHash[opType]
+
+def compOps(opType):
+	compStr =   ('D=M-D\n' +
+				'@TRUE' + str(opCnt) + '\n' +
+				'D;' + binOpHash(opType) + '\n' +
+				'@0\n' +
+				'D=A\n' +
+				'(JMP' + str(opCnt) + ')\n' +
+				'@SP\n' +
+				'A=M-1\n' +
+				'A=A-1\n' +
+				'M=D\n' +
+				'@OPS' + str(opCnt) + '\n'
+				'0;JMP\n' +
+				'(TRUE' + str(opCnt) + ')\n' +
+				'@-1\n' +
+				'D=A\n' +
+				'@JMP' + str(opCnt) + '\n'
+				'0;JMP\n')
+	return compStr
+	
+#print(binOp('lt'))
+
+fileName = sys.argv[1]
+
+lineList = []
+with open(str(fileName), 'r') as f:
+	for line in f:
+		string = cleanLine(line)
+		if string:
+			lineList.append(string)
+
+newLines = []
+for i in lineList:
+	pushPtrn = re.compile('(push|pop)([a-z]+)([0-9]+)')
+	pushMatch = pushPtrn.match(i)
+	
+	binPtrn = re.compile('(add|sub|eq|gt|lt|and|or)')
+	binMatch = binPtrn.match(i)
+	
+	urPtrn = re.compile('(neg|not)')
+	urMatch = urPtrn.match(i)
+	
+	if pushMatch:
+		nLine = push(pushMatch.group(3))
+	elif binMatch:
+		nLine = binOp(binMatch.group(1))
+	elif urMatch:
+		nLine = urOp(urMatch.group(1))
+	
+	newLines.append(nLine)
+	
+for i in newLines:
+	print(i)
